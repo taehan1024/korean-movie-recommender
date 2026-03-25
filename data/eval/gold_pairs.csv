@@ -1,0 +1,175 @@
+us_tmdb_id,kr_tmdb_id,us_title,kr_title,relevance,relationship_type,genre,notes,resolved
+87516,670,Oldboy,Oldeuboi,3,remake,Thriller,Spike Lee remake of Park Chan-wook original,
+2044,12650,The Lake House,Siworae,3,remake,Romance,US remake of Korean Il Mare,
+14254,1046553,The Uninvited,"Janghwa, Hongryeon",3,remake,Horror,Remake of A Tale of Two Sisters,
+76640,15067,The Last Stand,"The Good, the Bad, the Weird",2,thematic,Action,Kim Jee-woon directed both,
+48311,48311,Parasite,Parasite,2,thematic,Thriller,Cross-listed; use as anchor for class-divide thrillers,
+1422,165213,The Departed,New World,2,thematic,Crime,Undercover cop in crime syndicate,
+27205,1179462,Inception,Lucid Dream,2,thematic,Sci-Fi,Dream manipulation thriller,
+396535,396535,Train to Busan,Train to Busan,2,thematic,Horror,Cross-listed; anchor for zombie/survival horror,
+1949,11423,Zodiac,Memories of Murder,2,thematic,Crime,Serial killer investigation procedural,
+210577,131757,Gone Girl,Bedevilled,2,thematic,Thriller,Psychological revenge thriller,
+278,11344,The Shawshank Redemption,A Bittersweet Life,2,thematic,Drama,Betrayal and revenge in confined world,
+475557,858058,Joker,Burning,2,thematic,Drama,Class resentment psychological drama,
+807,49797,Se7en,I Saw the Devil,2,thematic,Thriller,Dark cat-and-mouse thriller,
+274,570646,The Silence of the Lambs,The Chaser,2,thematic,Thriller,Serial killer pursuit thriller,
+49047,581389,Gravity,Space Sweepers,1,genre,Sci-Fi,Space survival/adventure,
+245891,51608,John Wick,The Man from Nowhere,2,thematic,Action,Lone protector revenge action,
+8681,51608,Taken,Ajeossi,2,thematic,Action,Rescue mission action thriller,
+244786,286702,Whiplash,The King of Jokgu,1,genre,Drama,Intense mentor-student competition,
+11036,14197,The Notebook,My Sassy Girl,1,genre,Romance,Iconic romantic drama,
+419430,1064312,Get Out,The Wailing,2,thematic,Horror,Social horror with outsider protagonist,
+155,670,The Dark Knight,Oldboy,1,genre,Action,Top-rated Action match,True
+155,518068,The Dark Knight,Along with the Gods: The Last 49 Days,1,genre,Action,Top-rated Action match,True
+155,397567,The Dark Knight,Along with the Gods: The Two Worlds,1,genre,Action,Top-rated Action match,True
+122,670,The Lord of the Rings: The Return of the King,Oldboy,1,genre,Action,Top-rated Action match,True
+122,518068,The Lord of the Rings: The Return of the King,Along with the Gods: The Last 49 Days,1,genre,Action,Top-rated Action match,True
+122,397567,The Lord of the Rings: The Return of the King,Along with the Gods: The Two Worlds,1,genre,Action,Top-rated Action match,True
+120,670,The Lord of the Rings: The Fellowship of the Ring,Oldboy,1,genre,Action,Top-rated Action match,True
+120,518068,The Lord of the Rings: The Fellowship of the Ring,Along with the Gods: The Last 49 Days,1,genre,Action,Top-rated Action match,True
+120,397567,The Lord of the Rings: The Fellowship of the Ring,Along with the Gods: The Two Worlds,1,genre,Action,Top-rated Action match,True
+122,11658,The Lord of the Rings: The Return of the King,Tae Guk Gi: The Brotherhood of War,1,genre,Adventure,Top-rated Adventure match,True
+157336,518068,Interstellar,Along with the Gods: The Last 49 Days,1,genre,Adventure,Top-rated Adventure match,True
+157336,397567,Interstellar,Along with the Gods: The Two Worlds,1,genre,Adventure,Top-rated Adventure match,True
+157336,11658,Interstellar,Tae Guk Gi: The Brotherhood of War,1,genre,Adventure,Top-rated Adventure match,True
+120,11658,The Lord of the Rings: The Fellowship of the Ring,Tae Guk Gi: The Brotherhood of War,1,genre,Adventure,Top-rated Adventure match,True
+324857,435506,Spider-Man: Into the Spider-Verse,A Dog's Courage,1,genre,Animation,Top-rated Animation match,True
+324857,405458,Spider-Man: Into the Spider-Verse,Miniforce: New Heroes Rise,1,genre,Animation,Top-rated Animation match,True
+324857,561974,Spider-Man: Into the Spider-Verse,Dino King: Journey to Fire Mountain,1,genre,Animation,Top-rated Animation match,True
+569094,435506,Spider-Man: Across the Spider-Verse,A Dog's Courage,1,genre,Animation,Top-rated Animation match,True
+569094,405458,Spider-Man: Across the Spider-Verse,Miniforce: New Heroes Rise,1,genre,Animation,Top-rated Animation match,True
+569094,561974,Spider-Man: Across the Spider-Verse,Dino King: Journey to Fire Mountain,1,genre,Animation,Top-rated Animation match,True
+1184918,435506,The Wild Robot,A Dog's Courage,1,genre,Animation,Top-rated Animation match,True
+1184918,405458,The Wild Robot,Miniforce: New Heroes Rise,1,genre,Animation,Top-rated Animation match,True
+1184918,561974,The Wild Robot,Dino King: Journey to Fire Mountain,1,genre,Animation,Top-rated Animation match,True
+680,496243,Pulp Fiction,Parasite,1,genre,Comedy,Top-rated Comedy match,True
+680,1290182,Pulp Fiction,You Are the Apple of My Eye,1,genre,Comedy,Top-rated Comedy match,True
+680,444941,Pulp Fiction,Bride in Sneakers,1,genre,Comedy,Top-rated Comedy match,True
+13,496243,Forrest Gump,Parasite,1,genre,Comedy,Top-rated Comedy match,True
+13,1290182,Forrest Gump,You Are the Apple of My Eye,1,genre,Comedy,Top-rated Comedy match,True
+13,444941,Forrest Gump,Bride in Sneakers,1,genre,Comedy,Top-rated Comedy match,True
+105,496243,Back to the Future,Parasite,1,genre,Comedy,Top-rated Comedy match,True
+105,1290182,Back to the Future,You Are the Apple of My Eye,1,genre,Comedy,Top-rated Comedy match,True
+105,444941,Back to the Future,Bride in Sneakers,1,genre,Comedy,Top-rated Comedy match,True
+278,371000,The Shawshank Redemption,No Tomorrow,1,genre,Crime,Top-rated Crime match,True
+278,11423,The Shawshank Redemption,Memories of Murder,1,genre,Crime,Top-rated Crime match,True
+278,488623,The Shawshank Redemption,Forgotten,1,genre,Crime,Top-rated Crime match,True
+238,371000,The Godfather,No Tomorrow,1,genre,Crime,Top-rated Crime match,True
+238,11423,The Godfather,Memories of Murder,1,genre,Crime,Top-rated Crime match,True
+238,488623,The Godfather,Forgotten,1,genre,Crime,Top-rated Crime match,True
+240,371000,The Godfather Part II,No Tomorrow,1,genre,Crime,Top-rated Crime match,True
+240,11423,The Godfather Part II,Memories of Murder,1,genre,Crime,Top-rated Crime match,True
+240,488623,The Godfather Part II,Forgotten,1,genre,Crime,Top-rated Crime match,True
+164558,1145796,One Direction: This Is Us,TOMORROW X TOGETHER: OUR LOST SUMMER,1,genre,Documentary,Top-rated Documentary match,True
+164558,518683,One Direction: This Is Us,Intention,1,genre,Documentary,Top-rated Documentary match,True
+164558,730647,One Direction: This Is Us,Break the Silence: The Movie,1,genre,Documentary,Top-rated Documentary match,True
+58496,1145796,Senna,TOMORROW X TOGETHER: OUR LOST SUMMER,1,genre,Documentary,Top-rated Documentary match,True
+58496,518683,Senna,Intention,1,genre,Documentary,Top-rated Documentary match,True
+58496,730647,Senna,Break the Silence: The Movie,1,genre,Documentary,Top-rated Documentary match,True
+515042,1145796,Free Solo,TOMORROW X TOGETHER: OUR LOST SUMMER,1,genre,Documentary,Top-rated Documentary match,True
+515042,518683,Free Solo,Intention,1,genre,Documentary,Top-rated Documentary match,True
+515042,730647,Free Solo,Break the Silence: The Movie,1,genre,Documentary,Top-rated Documentary match,True
+278,527436,The Shawshank Redemption,Herstory,1,genre,Drama,Top-rated Drama match,True
+278,424628,The Shawshank Redemption,Sprout,1,genre,Drama,Top-rated Drama match,True
+278,591322,The Shawshank Redemption,My First Client,1,genre,Drama,Top-rated Drama match,True
+238,527436,The Godfather,Herstory,1,genre,Drama,Top-rated Drama match,True
+238,424628,The Godfather,Sprout,1,genre,Drama,Top-rated Drama match,True
+238,591322,The Godfather,My First Client,1,genre,Drama,Top-rated Drama match,True
+240,527436,The Godfather Part II,Herstory,1,genre,Drama,Top-rated Drama match,True
+240,424628,The Godfather Part II,Sprout,1,genre,Drama,Top-rated Drama match,True
+240,591322,The Godfather Part II,My First Client,1,genre,Drama,Top-rated Drama match,True
+1184918,487252,The Wild Robot,My Last Love,1,genre,Family,Top-rated Family match,True
+1184918,589174,The Wild Robot,Pawn,1,genre,Family,Top-rated Family match,True
+1184918,570511,The Wild Robot,"Cheer Up, Mr. Lee",1,genre,Family,Top-rated Family match,True
+1585,487252,It's a Wonderful Life,My Last Love,1,genre,Family,Top-rated Family match,True
+1585,589174,It's a Wonderful Life,Pawn,1,genre,Family,Top-rated Family match,True
+1585,570511,It's a Wonderful Life,"Cheer Up, Mr. Lee",1,genre,Family,Top-rated Family match,True
+8587,487252,The Lion King,My Last Love,1,genre,Family,Top-rated Family match,True
+8587,589174,The Lion King,Pawn,1,genre,Family,Top-rated Family match,True
+8587,570511,The Lion King,"Cheer Up, Mr. Lee",1,genre,Family,Top-rated Family match,True
+497,499028,The Green Mile,Be with You,1,genre,Fantasy,Top-rated Fantasy match,True
+497,518068,The Green Mile,Along with the Gods: The Last 49 Days,1,genre,Fantasy,Top-rated Fantasy match,True
+497,397567,The Green Mile,Along with the Gods: The Two Worlds,1,genre,Fantasy,Top-rated Fantasy match,True
+122,499028,The Lord of the Rings: The Return of the King,Be with You,1,genre,Fantasy,Top-rated Fantasy match,True
+120,499028,The Lord of the Rings: The Fellowship of the Ring,Be with You,1,genre,Fantasy,Top-rated Fantasy match,True
+424,437103,Schindler's List,1987: When the Day Comes,1,genre,History,Top-rated History match,True
+424,437068,Schindler's List,A Taxi Driver,1,genre,History,Top-rated History match,True
+424,575752,Schindler's List,A Resistance,1,genre,History,Top-rated History match,True
+857,437103,Saving Private Ryan,1987: When the Day Comes,1,genre,History,Top-rated History match,True
+857,437068,Saving Private Ryan,A Taxi Driver,1,genre,History,Top-rated History match,True
+857,575752,Saving Private Ryan,A Resistance,1,genre,History,Top-rated History match,True
+490132,437103,Green Book,1987: When the Day Comes,1,genre,History,Top-rated History match,True
+490132,437068,Green Book,A Taxi Driver,1,genre,History,Top-rated History match,True
+490132,575752,Green Book,A Resistance,1,genre,History,Top-rated History match,True
+539,49797,Psycho,I Saw the Devil,1,genre,Horror,Top-rated Horror match,True
+539,396535,Psycho,Train to Busan,1,genre,Horror,Top-rated Horror match,True
+539,373944,Psycho,Alice: Boy from Wonderland,1,genre,Horror,Top-rated Horror match,True
+694,49797,The Shining,I Saw the Devil,1,genre,Horror,Top-rated Horror match,True
+694,396535,The Shining,Train to Busan,1,genre,Horror,Top-rated Horror match,True
+694,373944,The Shining,Alice: Boy from Wonderland,1,genre,Horror,Top-rated Horror match,True
+348,49797,Alien,I Saw the Devil,1,genre,Horror,Top-rated Horror match,True
+348,396535,Alien,Train to Busan,1,genre,Horror,Top-rated Horror match,True
+348,373944,Alien,Alice: Boy from Wonderland,1,genre,Horror,Top-rated Horror match,True
+244786,1628123,Whiplash,BTS THE COMEBACK LIVE | ARIRANG,1,genre,Music,Top-rated Music match,True
+244786,1145796,Whiplash,TOMORROW X TOGETHER: OUR LOST SUMMER,1,genre,Music,Top-rated Music match,True
+244786,730647,Whiplash,Break the Silence: The Movie,1,genre,Music,Top-rated Music match,True
+164558,1628123,One Direction: This Is Us,BTS THE COMEBACK LIVE | ARIRANG,1,genre,Music,Top-rated Music match,True
+630566,1628123,Clouds,BTS THE COMEBACK LIVE | ARIRANG,1,genre,Music,Top-rated Music match,True
+630566,1145796,Clouds,TOMORROW X TOGETHER: OUR LOST SUMMER,1,genre,Music,Top-rated Music match,True
+630566,730647,Clouds,Break the Silence: The Movie,1,genre,Music,Top-rated Music match,True
+539,670,Psycho,Oldboy,1,genre,Mystery,Top-rated Mystery match,True
+539,376847,Psycho,Remember You,1,genre,Mystery,Top-rated Mystery match,True
+539,530254,Psycho,The Witch: Part 1. The Subversion,1,genre,Mystery,Top-rated Mystery match,True
+807,670,Se7en,Oldboy,1,genre,Mystery,Top-rated Mystery match,True
+807,376847,Se7en,Remember You,1,genre,Mystery,Top-rated Mystery match,True
+807,530254,Se7en,The Witch: Part 1. The Subversion,1,genre,Mystery,Top-rated Mystery match,True
+567,670,Rear Window,Oldboy,1,genre,Mystery,Top-rated Mystery match,True
+567,376847,Rear Window,Remember You,1,genre,Mystery,Top-rated Mystery match,True
+567,530254,Rear Window,The Witch: Part 1. The Subversion,1,genre,Mystery,Top-rated Mystery match,True
+13,1466115,Forrest Gump,Even If This Love Disappears Tonight,1,genre,Romance,Top-rated Romance match,True
+696374,1290182,Gabriel's Inferno,You Are the Apple of My Eye,1,genre,Romance,Top-rated Romance match,True
+696374,444941,Gabriel's Inferno,Bride in Sneakers,1,genre,Romance,Top-rated Romance match,True
+696374,1466115,Gabriel's Inferno,Even If This Love Disappears Tonight,1,genre,Romance,Top-rated Romance match,True
+724089,1290182,Gabriel's Inferno: Part II,You Are the Apple of My Eye,1,genre,Romance,Top-rated Romance match,True
+724089,444941,Gabriel's Inferno: Part II,Bride in Sneakers,1,genre,Romance,Top-rated Romance match,True
+724089,1466115,Gabriel's Inferno: Part II,Even If This Love Disappears Tonight,1,genre,Romance,Top-rated Romance match,True
+157336,530254,Interstellar,The Witch: Part 1. The Subversion,1,genre,Science Fiction,Top-rated Science Fiction match,True
+157336,200085,Interstellar,The Flu,1,genre,Science Fiction,Top-rated Science Fiction match,True
+157336,575604,Interstellar,The Call,1,genre,Science Fiction,Top-rated Science Fiction match,True
+324857,530254,Spider-Man: Into the Spider-Verse,The Witch: Part 1. The Subversion,1,genre,Science Fiction,Top-rated Science Fiction match,True
+324857,200085,Spider-Man: Into the Spider-Verse,The Flu,1,genre,Science Fiction,Top-rated Science Fiction match,True
+324857,575604,Spider-Man: Into the Spider-Verse,The Call,1,genre,Science Fiction,Top-rated Science Fiction match,True
+1891,530254,The Empire Strikes Back,The Witch: Part 1. The Subversion,1,genre,Science Fiction,Top-rated Science Fiction match,True
+1891,200085,The Empire Strikes Back,The Flu,1,genre,Science Fiction,Top-rated Science Fiction match,True
+1891,575604,The Empire Strikes Back,The Call,1,genre,Science Fiction,Top-rated Science Fiction match,True
+537061,792718,Steven Universe: The Movie,History of Walking Upright,1,genre,TV Movie,Top-rated TV Movie match,True
+537061,52061,Steven Universe: The Movie,Wide Awake,1,genre,TV Movie,Top-rated TV Movie match,True
+537061,1022072,Steven Universe: The Movie,Devil in the Lake,1,genre,TV Movie,Top-rated TV Movie match,True
+379170,792718,Sherlock: The Abominable Bride,History of Walking Upright,1,genre,TV Movie,Top-rated TV Movie match,True
+379170,52061,Sherlock: The Abominable Bride,Wide Awake,1,genre,TV Movie,Top-rated TV Movie match,True
+379170,1022072,Sherlock: The Abominable Bride,Devil in the Lake,1,genre,TV Movie,Top-rated TV Movie match,True
+178682,792718,The Wizards Return: Alex vs. Alex,History of Walking Upright,1,genre,TV Movie,Top-rated TV Movie match,True
+178682,52061,The Wizards Return: Alex vs. Alex,Wide Awake,1,genre,TV Movie,Top-rated TV Movie match,True
+178682,1022072,The Wizards Return: Alex vs. Alex,Devil in the Lake,1,genre,TV Movie,Top-rated TV Movie match,True
+155,371000,The Dark Knight,No Tomorrow,1,genre,Thriller,Top-rated Thriller match,True
+155,496243,The Dark Knight,Parasite,1,genre,Thriller,Top-rated Thriller match,True
+680,371000,Pulp Fiction,No Tomorrow,1,genre,Thriller,Top-rated Thriller match,True
+680,670,Pulp Fiction,Oldboy,1,genre,Thriller,Top-rated Thriller match,True
+550,371000,Fight Club,No Tomorrow,1,genre,Thriller,Top-rated Thriller match,True
+550,496243,Fight Club,Parasite,1,genre,Thriller,Top-rated Thriller match,True
+550,670,Fight Club,Oldboy,1,genre,Thriller,Top-rated Thriller match,True
+424,379880,Schindler's List,A Melody to Remember,1,genre,War,Top-rated War match,True
+424,554779,Schindler's List,Swing Kids,1,genre,War,Top-rated War match,True
+424,11658,Schindler's List,Tae Guk Gi: The Brotherhood of War,1,genre,War,Top-rated War match,True
+423,379880,The Pianist,A Melody to Remember,1,genre,War,Top-rated War match,True
+423,554779,The Pianist,Swing Kids,1,genre,War,Top-rated War match,True
+423,11658,The Pianist,Tae Guk Gi: The Brotherhood of War,1,genre,War,Top-rated War match,True
+914,379880,The Great Dictator,A Melody to Remember,1,genre,War,Top-rated War match,True
+914,554779,The Great Dictator,Swing Kids,1,genre,War,Top-rated War match,True
+914,11658,The Great Dictator,Tae Guk Gi: The Brotherhood of War,1,genre,War,Top-rated War match,True
+68718,15067,Django Unchained,"The Good, the Bad, the Weird",1,genre,Western,Top-rated Western match,True
+68718,19886,Django Unchained,Dachimawa Lee,1,genre,Western,Top-rated Western match,True
+3090,15067,The Treasure of the Sierra Madre,"The Good, the Bad, the Weird",1,genre,Western,Top-rated Western match,True
+3090,19886,The Treasure of the Sierra Madre,Dachimawa Lee,1,genre,Western,Top-rated Western match,True
+6977,15067,No Country for Old Men,"The Good, the Bad, the Weird",1,genre,Western,Top-rated Western match,True
+6977,19886,No Country for Old Men,Dachimawa Lee,1,genre,Western,Top-rated Western match,True

@@ -1,0 +1,11 @@
+{
+  "us_count": 5000,
+  "kr_count": 1512,
+  "groups_built": [
+    "keyword",
+    "year"
+  ],
+  "embedding_model": "all-MiniLM-L6-v2",
+  "tfidf_max_features": 10000,
+  "version": "v2"
+}

@@ -1,0 +1,27 @@
+# Environment & secrets
+.env
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# Data (regenerable via pipeline)
+data/raw/
+data/metadata/
+
+# Cast features (109MB exceeds GitHub 100MB limit; cast weight=0.0 in tuned model)
+data/features/cast_us.npy
+data/features/cast_kr.npy
+data/features/cast_vocab.joblib
+
+# Results (regenerable via make eval-v2)
+results/
+
+# IDE / Claude
+.claude/
+.vscode/
+.idea/
