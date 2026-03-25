@@ -1,12 +1,12 @@
 # Korean Movie Recommender
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://korean-movie-recommender.streamlit.app)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://korean-movie-recommender-dbs65tfqxee5tdixtse4o6.streamlit.app)
 
 Cross-cultural content-based movie recommender: enter a US movie, get ranked Korean movie recommendations.
 
 Built with Python, TMDB API, sentence-transformers, and Streamlit. No user interaction data — purely content-based using plot synopses, genres, keywords, and year proximity.
 
-**[Try the live demo](https://korean-movie-recommender.streamlit.app)**
+**[Try the live demo](https://korean-movie-recommender-dbs65tfqxee5tdixtse4o6.streamlit.app)**
 
 ## Key Results
 
