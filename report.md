@@ -1,4 +1,4 @@
-# K-Movie Recommender: Technical Report
+# Korean Movie Recommender: Technical Report
 
 ## 1. Problem Statement
 
@@ -36,7 +36,7 @@ This finding deprioritized the entire multilingual embeddings track and redirect
 ### Data Pipeline
 
 ```
-TMDB API → data/raw/*.json → data/processed/*.csv
+TMDB API -> data/raw/*.json -> data/processed/*.csv
 ```
 
 Rate limiting uses a **token bucket** shared across 4 concurrent threads (35 requests per 10-second window, against TMDB's 40 req/10s ceiling). This achieves ~3.5x speedup over sequential fetching. Checkpoints every 200 records enable crash recovery.
@@ -61,7 +61,7 @@ Keywords are fetched separately via TMDB's `/movie/{id}/keywords` endpoint, addi
 
 **Year proximity.** A Gaussian decay function: `exp(-(year_diff^2) / (2 * 10^2))`. Movies from the same era score ~1.0; a 20-year gap scores ~0.14. This captures the intuition that a 2010s thriller is more comparable to a 2010s Korean thriller than to a 1990s one.
 
-**Cast/crew multi-hot.** Binary encoding of top-5 billed actors and director. Only 46 people (0.8%) appear in both catalogs — almost entirely directors who crossed industries (Bong Joon-ho, Park Chan-wook, Kim Jee-woon). This feature was included in v1 but proved to be pure noise in v2 grid search (optimal weight: 0.0).
+**Cast/crew multi-hot.** Binary encoding of top-5 billed actors and director. Only 46 people (0.8%) appear in both catalogs — almost entirely directors who crossed industries (Bong Joon-ho, Park Chan-wook, Kim Jee-woon). Grid search confirmed this feature is pure noise (optimal weight: 0.0), though it remains available for future use.
 
 ---
 
@@ -75,39 +75,33 @@ Sparse bag-of-words on plot synopses. Simple, fast, interpretable. Captures lite
 
 Dense 384-dim vectors from all-MiniLM-L6-v2. Captures semantic similarity. DCG@10 = 0.173 (+29% over TF-IDF).
 
-### Hybrid v1 (Initial)
+### Hybrid (Tuned)
 
-Weighted combination of three signals: text embeddings (0.5), genre Jaccard (0.3), cast Jaccard (0.2). Each component is min-max normalized to [0, 1] before weighting.
-
-**Result:** Hybrid v1 actually **underperformed** the standalone embedding model (DCG@10 = 0.072 vs 0.173). The cast feature at weight 0.2 was injecting noise — with 0.8% person overlap, it was effectively random.
-
-### Hybrid v2 (Improved)
-
-After adding keyword and year features and running grid search over 288 weight combinations:
+Weighted combination of five signals, each min-max normalized to [0, 1] before fusion. Grid search over 288 weight combinations found the optimal allocation:
 
 ```
 text=0.47, genre=0.24, keyword=0.18, cast=0.00, year=0.11
 ```
 
-DCG@10 = 0.298 (+72% over v1's best model).
+DCG@10 = 0.298 (+72% over the best single-feature model).
 
-**Why did v2 succeed where v1 failed?** Three changes mattered:
+**Why does the hybrid succeed?** Three factors:
 
-1. **Keywords added thematic signal.** Genres are too coarse — both *The Dark Knight* and *My Sassy Girl* can be tagged "Drama". Keywords like "serial killer", "class struggle", "revenge" capture what actually makes movies thematically similar across cultures.
+1. **Keywords add thematic signal.** Genres are too coarse — both *The Dark Knight* and *My Sassy Girl* can be tagged "Drama". Keywords like "serial killer", "class struggle", "revenge" capture what actually makes movies thematically similar across cultures. Adding keywords tripled thematic Hit@10 (from 0.083 to 0.250).
 
-2. **Cast dropped to zero.** Grid search confirmed what the data suggested: 0.8% person overlap means cast is noise, not signal. Removing it entirely improved results.
+2. **Cast contributes zero signal.** Grid search confirmed what the data suggested: 0.8% person overlap means cast is noise, not signal. Removing it entirely improved results.
 
-3. **Year proximity softened temporal mismatch.** Korean cinema's golden age (2000s-2010s) overlaps heavily with the US movies in our catalog. Year proximity helps surface era-appropriate matches.
+3. **Year proximity softens temporal mismatch.** Korean cinema's golden age (2000s-2010s) overlaps heavily with the US movies in our catalog. Year proximity helps surface era-appropriate matches.
+
+![Feature Weights](notebooks/figures/feature_weights.png)
 
 ---
 
 ## 5. Evaluation
 
-### Why Standard Metrics Failed
+### Metric Selection
 
-V1 evaluation used Precision@K with a target of P@10 >= 0.40. This was **mathematically impossible**: with only ~3 gold matches per query movie, a perfect model achieves P@10 = 0.30. The target was set without considering the gold set size.
-
-Following DaisyRec 2.0 (Sun et al., 2022) on evaluation methodology, we switched to metrics appropriate for sparse labels:
+Early iterations used Precision@K, which was **mathematically misleading**: with only ~3 gold matches per query movie, a perfect model achieves P@10 = 0.30. Following DaisyRec 2.0 (Sun et al., 2022) on evaluation methodology, we use metrics appropriate for sparse labels:
 
 | Metric | Why |
 |---|---|
@@ -120,9 +114,9 @@ Following DaisyRec 2.0 (Sun et al., 2022) on evaluation methodology, we switched
 
 174 curated US-KR movie pairs across three relevance levels:
 
-- **Remake (3):** Direct remakes/adaptations. E.g., *Oldboy* (US 2013) ↔ *Oldboy* (KR 2003). Strongest possible match. Only 3 pairs — US-KR remakes are rare.
-- **Thematic (2):** Similar themes, tone, plot structure. E.g., *Zodiac* ↔ *Memories of Murder* (serial killer investigation procedurals). 13 pairs.
-- **Genre (1):** Same genre with some topical overlap. E.g., *Gravity* ↔ *Space Sweepers*. 158 pairs.
+- **Remake (3):** Direct remakes/adaptations. E.g., *Oldboy* (US 2013) <-> *Oldboy* (KR 2003). Strongest possible match. Only 3 pairs — US-KR remakes are rare.
+- **Thematic (2):** Similar themes, tone, plot structure. E.g., *Zodiac* <-> *Memories of Murder* (serial killer investigation procedurals). ~21 pairs.
+- **Genre (1):** Same genre with some topical overlap. E.g., *Gravity* <-> *Space Sweepers*. ~150 pairs.
 
 The gold set was generated semi-automatically: manually curated seed pairs for remakes and thematic matches, plus automated genre matching for broader coverage.
 
@@ -134,7 +128,9 @@ The gold set was generated semi-automatically: manually curated seed pairs for r
 | Thematic (2) | 0.250 | Thematic matches found 1/4 of the time (3x improvement from keywords) |
 | Genre (1) | 0.195 | Genre-level matches detected ~20% of the time |
 
-Keywords had the most dramatic impact on thematic matches, tripling Hit@10 from 0.083 to 0.250. This validates the hypothesis that keywords serve as a "thematic bridge" between cultures.
+Keywords had the most dramatic impact on thematic matches, tripling Hit@10. This validates the hypothesis that keywords serve as a "thematic bridge" between cultures.
+
+![Per-Relevance Analysis](notebooks/figures/relevance_analysis.png)
 
 ### Bootstrap Confidence Intervals
 
@@ -144,44 +140,21 @@ With only 56 evaluation queries, point estimates are unreliable. All metrics are
 
 ## 6. Results
 
-### V1 vs V2 Comparison
-
-| Model | P@10 | R@10 | DCG@10 | NDCG@10 |
+| Model | P@10 | R@10 | DCG@10 | nDCG@10 |
 |---|---|---|---|---|
 | TF-IDF | 0.013 | 0.094 | 0.134 | 0.057 |
 | Embedding | 0.018 | 0.095 | 0.173 | 0.066 |
-| Hybrid v1 | 0.014 | 0.054 | 0.072 | 0.029 |
-| **Hybrid v2** | **0.025** | **0.125** | **0.298** | **0.123** |
+| **Hybrid (tuned)** | **0.025** | **0.125** | **0.298** | **0.123** |
 
-V2 hybrid is the clear winner, with +72% DCG@10 over the best v1 model (embedding).
+![Model Comparison](notebooks/figures/model_comparison.png)
 
-### V1 vs V2 Rank Agreement
-
-Comparing the full ranking (not just top-10) of v1 and v2 hybrid models across all 5,000 US queries:
-
-- **Mean top-10 overlap:** 62.5% (on average, 6-7 of 10 recommendations are shared)
-- **Mean rank correlation:** 0.936 (overall rankings are similar, but top-k differs)
-- **0% overlap:** 0.0% of queries (every query has at least some overlap)
-- **100% overlap:** 0.6% of queries (nearly identical recommendations)
-
-The 37.5% divergence in top-10 is where the new features have impact. For example, given *Edward Scissorhands* (US), v1 recommends Korean romance films (*Beautiful Vampire*, *A Man and a Woman*), while v2 recommends more atmospheric/artsy films (*Spring, Summer, Fall, Winter... and Spring*, *3-Iron*) — arguably a better thematic match.
-
-### Acceptance Criteria
-
-| Metric | V2 Hybrid | Target | Status |
-|---|---|---|---|
-| Hit@10 | 0.232 | >= 0.35 | BELOW |
-| MRR | 0.171 | >= 0.10 | **PASS** |
-| R@10 | 0.125 | >= 0.25 | BELOW |
-| DCG@10 | 0.298 | >= 0.50 | BELOW |
-
-MRR passes target. Other metrics remain below, likely limited by the gold set size and quality (see Limitations).
+![Genre Heatmap](notebooks/figures/genre_heatmap.png)
 
 ---
 
 ## 7. Design Decisions
 
-Each major decision was informed by research papers in the project's knowledge vault:
+Each major decision was informed by research papers:
 
 | Decision | Choice | Paper | Finding |
 |---|---|---|---|
@@ -189,16 +162,16 @@ Each major decision was informed by research papers in the project's knowledge v
 | Text weight >= 0.5 | High text weight | ReasoningRec (2024) | Item descriptions dominate for sparse/no-user data |
 | Fix eval before features | Methodology first | DaisyRec 2.0 (2022) | Hyper-factors change results completely |
 | Content-based only | No collaborative | TMCDR (2021) | Cross-domain needs overlapping users (we have none) |
-| Min-max normalization | Not rank normalization | Empirical | Rank normalization dropped NDCG from 0.095 to 0.029 |
+| Min-max normalization | Not rank normalization | Empirical | Rank normalization dropped nDCG from 0.095 to 0.029 |
 | Bootstrap CIs | Mandatory | DaisyRec 2.0 | <100 queries makes point estimates unreliable |
 
 ---
 
 ## 8. Lessons Learned
 
-1. **The target matters more than the model.** V1's hybrid was worse than standalone embedding because cast features added noise. Diagnosing what went wrong (cast overlap = 0.8%) was more valuable than trying fancier models.
+1. **The target matters more than the model.** An initial hybrid attempt actually *underperformed* the standalone embedding model because cast features (weighted at 0.2) injected noise. Diagnosing what went wrong (cast overlap = 0.8%) was more valuable than trying fancier models.
 
-2. **Fix measurement before features.** V1's P@10 target was mathematically impossible. Without switching to Hit@K and MRR first, any feature improvement would look like noise.
+2. **Fix measurement before features.** An early P@10 target was mathematically impossible given the gold set size. Without switching to Hit@K and MRR, any feature improvement would look like noise.
 
 3. **Check data before assuming bottlenecks.** The multilingual embeddings track was deprioritized entirely once we discovered TMDB provides English overviews for 99.9% of Korean movies. A 30-second data check saved hours of engineering.
 
@@ -223,7 +196,7 @@ Each major decision was informed by research papers in the project's knowledge v
 
 - **Gold set expansion.** Replace noisy genre matches with embedding-filtered matches. Add ~30 manually curated thematic pairs. Target: 100+ unique queries, 300+ pairs.
 - **Pooling-based labeling.** Use the model's own top-20 recommendations as candidates for human labeling — standard IR evaluation protocol.
-- **LLM-assisted thematic discovery.** Use Claude or GPT to judge thematic similarity between movie pairs at scale (~$1 for 500 judgments).
+- **LLM-assisted thematic discovery.** Use an LLM to judge thematic similarity between movie pairs at scale (~$1 for 500 judgments).
 
 ### Longer-Term Directions
 

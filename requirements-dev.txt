@@ -3,3 +3,7 @@ requests>=2.31
 sentence-transformers>=2.2
 python-dotenv>=1.0
 deep-translator>=1.11
+pytest>=7.0
+matplotlib>=3.7
+seaborn>=0.12
+umap-learn>=0.5

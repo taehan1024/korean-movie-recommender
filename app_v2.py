@@ -1,11 +1,7 @@
-"""V2 Streamlit app: imports from models_v2, UX fixes.
+"""Streamlit UI for the Korean Movie Recommender.
 
-Changes from v1 (app.py):
-- Imports from models_v2 (keyword/year features, bug fixes)
-- Handles year NaN before int() cast
-- try/except on poster image loading
-- Shows component score breakdown (keyword_score, year_diff)
-- Hybrid weight sliders include keyword and year
+Interactive interface for searching US movies and getting ranked Korean
+movie recommendations with explanation breakdowns and filtering options.
 """
 
 import streamlit as st

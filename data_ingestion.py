@@ -1,24 +1,15 @@
-"""Download US and Korean movie data from TMDB API.
+"""TMDB data ingestion pipeline with concurrent fetching.
 
-v2 — Concurrent fetching with token bucket rate limiter.
-
-Changes from v1:
-  1. Token bucket rate limiter (35 req/10s) replaces per-request sleep(0.3).
-     Multiple requests in-flight simultaneously via ThreadPoolExecutor.
-     Still under TMDB's 40 req/10s limit with safety margin.
-  2. Two-phase fetch: discover pages first (fast, ~400 requests), then
-     detail calls in parallel batches.
-  3. Checkpoint every 100 movies instead of every page.
-
-Estimated speedup: ~3x (107 min → 35 min for 8000 movies).
-TMDB rate limit: 40 requests per 10 seconds (free tier).
-We target 35 req/10s = 3.5 req/s for safety margin.
+Two-phase fetch: discover movie IDs via paginated search, then fetch
+details concurrently (4 threads) with token bucket rate limiting
+(35 req/10s, under TMDB's 40 req/10s ceiling). Checkpoints every 100
+movies for crash recovery.
 """
 
 import argparse
 import json
+import logging
 import os
-import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -26,6 +17,10 @@ from pathlib import Path
 import pandas as pd
 import requests
 from dotenv import load_dotenv
+
+from utils import TokenBucket
+
+log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Config
@@ -59,55 +54,8 @@ REQUIRED_FIELDS = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Token bucket rate limiter
-# ---------------------------------------------------------------------------
-class TokenBucket:
-    """Thread-safe token bucket rate limiter.
-
-    Allows up to `rate` requests per `window` seconds. Each call to
-    acquire() blocks until a token is available. This lets multiple
-    threads share a single global rate limit safely.
-    """
-
-    def __init__(self, rate: int, window: float):
-        self._rate = rate
-        self._window = window
-        self._tokens = rate
-        self._last_refill = time.monotonic()
-        self._lock = threading.Lock()
-
-    def acquire(self) -> None:
-        while True:
-            with self._lock:
-                now = time.monotonic()
-                elapsed = now - self._last_refill
-                if elapsed >= self._window:
-                    self._tokens = self._rate
-                    self._last_refill = now
-                elif elapsed > 0:
-                    # Partial refill proportional to elapsed time
-                    refill = int(elapsed / self._window * self._rate)
-                    if refill > 0:
-                        self._tokens = min(self._rate, self._tokens + refill)
-                        self._last_refill = now
-
-                if self._tokens > 0:
-                    self._tokens -= 1
-                    return
-
-            # No tokens available — wait a small amount and retry
-            time.sleep(0.05)
-
-
 # Global rate limiter shared across all threads
 _bucket = TokenBucket(RATE_LIMIT, RATE_WINDOW_SEC)
-_print_lock = threading.Lock()
-
-
-def _safe_print(msg: str) -> None:
-    with _print_lock:
-        print(msg)
 
 
 # ---------------------------------------------------------------------------
@@ -129,19 +77,19 @@ def _get(url: str, params: dict, api_key: str) -> dict | None:
         try:
             resp = requests.get(url, params=params, timeout=30)
         except requests.RequestException as e:
-            _safe_print(f"  Request error: {e}")
+            log.info(f"  Request error: {e}")
             return None
 
         if resp.status_code == 200:
             return resp.json()
         if resp.status_code == 429:
             wait = min(2 ** (attempt + 1), MAX_BACKOFF_SEC)
-            _safe_print(f"  Rate limited (429), backing off {wait}s...")
+            log.info(f"  Rate limited (429), backing off {wait}s...")
             time.sleep(wait)
             continue
-        _safe_print(f"  TMDB error {resp.status_code} for {url}")
+        log.info(f"  TMDB error {resp.status_code} for {url}")
         return None
-    _safe_print(f"  Failed after {MAX_RETRIES} retries: {url}")
+    log.info(f"  Failed after {MAX_RETRIES} retries: {url}")
     return None
 
 
@@ -174,11 +122,11 @@ def discover_all_ids(
     for page in range(1, max_pages + 1):
         ids = discover_page(language, page, min_votes, api_key)
         if not ids:
-            _safe_print(f"  Discover page {page}: no results, stopping")
+            log.info(f"  Discover page {page}: no results, stopping")
             break
         all_ids.extend(ids)
         if page % 50 == 0:
-            _safe_print(f"  Discovered {len(all_ids)} IDs through page {page}")
+            log.info(f"  Discovered {len(all_ids)} IDs through page {page}")
     return all_ids
 
 
@@ -231,7 +179,7 @@ def translate_overview(text: str) -> str:
         from deep_translator import GoogleTranslator
         return GoogleTranslator(source="ko", target="en").translate(text)
     except Exception as e:
-        _safe_print(f"  Translation failed: {e}")
+        log.info(f"  Translation failed: {e}")
         return ""
 
 
@@ -273,7 +221,7 @@ def fetch_details_concurrent(
     """
     # Filter out already-fetched IDs
     new_ids = [tid for tid in tmdb_ids if tid not in seen_ids]
-    _safe_print(f"  {len(new_ids)} new movies to fetch ({len(seen_ids)} already cached)")
+    log.info(f"  {len(new_ids)} new movies to fetch ({len(seen_ids)} already cached)")
 
     if not new_ids:
         return existing
@@ -294,7 +242,7 @@ def fetch_details_concurrent(
             try:
                 record = future.result()
             except Exception as e:
-                _safe_print(f"  Error fetching {tmdb_id}: {e}")
+                log.info(f"  Error fetching {tmdb_id}: {e}")
                 continue
 
             if record is None:
@@ -306,12 +254,12 @@ def fetch_details_concurrent(
 
             if fetched_count % CHECKPOINT_EVERY == 0:
                 raw_path.write_text(json.dumps(movies, ensure_ascii=False, indent=2))
-                _safe_print(f"  Checkpoint: {fetched_count}/{len(new_ids)} fetched, "
+                log.info(f"  Checkpoint: {fetched_count}/{len(new_ids)} fetched, "
                             f"{len(movies)} total")
 
     # Final save
     raw_path.write_text(json.dumps(movies, ensure_ascii=False, indent=2))
-    _safe_print(f"  Done: {fetched_count} new movies fetched, {len(movies)} total")
+    log.info(f"  Done: {fetched_count} new movies fetched, {len(movies)} total")
     return movies
 
 
@@ -334,26 +282,26 @@ def fetch_catalog(
     if raw_path.exists():
         existing = json.loads(raw_path.read_text())
         seen_ids = {m["tmdb_id"] for m in existing}
-        _safe_print(f"Resuming {label}: {len(existing)} movies already fetched")
+        log.info(f"Resuming {label}: {len(existing)} movies already fetched")
 
     # Phase 1: Discover all IDs (sequential, fast)
-    _safe_print(f"\n--- Phase 1: Discovering {label} movie IDs ---")
+    log.info(f"\n--- Phase 1: Discovering {label} movie IDs ---")
     all_ids = discover_all_ids(language, max_pages, min_votes, api_key)
-    _safe_print(f"  Discovered {len(all_ids)} total IDs")
+    log.info(f"  Discovered {len(all_ids)} total IDs")
 
     # Phase 2: Fetch details concurrently
-    _safe_print(f"\n--- Phase 2: Fetching {label} movie details ---")
+    log.info(f"\n--- Phase 2: Fetching {label} movie details ---")
     is_korean = language == "ko"
     movies = fetch_details_concurrent(
         all_ids, seen_ids, api_key, is_korean, raw_path, existing, workers,
     )
 
-    _safe_print(f"\n{label} complete: {len(movies)} movies")
+    log.info(f"\n{label} complete: {len(movies)} movies")
     return movies
 
 
 # ---------------------------------------------------------------------------
-# CSV export + quality report (unchanged from v1)
+# CSV export + quality report
 # ---------------------------------------------------------------------------
 def build_csv(movies: list[dict], out_path: Path) -> pd.DataFrame:
     """Convert raw records to clean CSV."""
@@ -362,12 +310,12 @@ def build_csv(movies: list[dict], out_path: Path) -> pd.DataFrame:
     df = df[df["overview"].astype(str).str.strip().ne("")]
     after = len(df)
     if before != after:
-        print(f"  Dropped {before - after} movies with empty overview")
+        log.info(f"  Dropped {before - after} movies with empty overview")
 
     df = df.drop_duplicates(subset="tmdb_id")
     DATA_PROCESSED.mkdir(parents=True, exist_ok=True)
     df.to_csv(out_path, index=False)
-    print(f"  Saved {len(df)} movies to {out_path.name}")
+    log.info(f"  Saved {len(df)} movies to {out_path.name}")
     return df
 
 
@@ -391,15 +339,16 @@ def quality_report(us_df: pd.DataFrame, kr_df: pd.DataFrame) -> None:
 
     report = pd.DataFrame(rows)
     report.to_csv(DATA_METADATA / "data_quality.csv", index=False)
-    print("\n--- Data Quality ---")
-    print(report.to_string(index=False))
+    log.info("--- Data Quality ---")
+    log.info(report.to_string(index=False))
 
 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    parser = argparse.ArgumentParser(description="Download movie data from TMDB (v2 concurrent)")
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+    parser = argparse.ArgumentParser(description="Download movie data from TMDB")
     parser.add_argument("--skip-us", action="store_true", help="Skip US catalog fetch")
     parser.add_argument("--skip-kr", action="store_true", help="Skip KR catalog fetch")
     parser.add_argument("--max-pages-us", type=int, default=US_MAX_PAGES)
@@ -414,13 +363,13 @@ def main():
     us_movies, kr_movies = [], []
 
     if not args.skip_us:
-        print("=== Fetching US movies ===")
+        log.info("=== Fetching US movies ===")
         us_movies = fetch_catalog("us", "en", args.max_pages_us, US_MIN_VOTES, api_key, workers)
     elif (DATA_RAW / "us_movies.json").exists():
         us_movies = json.loads((DATA_RAW / "us_movies.json").read_text())
 
     if not args.skip_kr:
-        print("=== Fetching KR movies ===")
+        log.info("=== Fetching KR movies ===")
         kr_movies = fetch_catalog("kr", "ko", args.max_pages_kr, KR_MIN_VOTES, api_key, workers)
     elif (DATA_RAW / "kr_movies.json").exists():
         kr_movies = json.loads((DATA_RAW / "kr_movies.json").read_text())

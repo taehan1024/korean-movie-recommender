@@ -1,173 +1,293 @@
-"""Semi-automated curation of US-KR evaluation movie pairs.
+"""Gold evaluation set curation for movie recommendation benchmarks.
 
-Generates candidate pairs from:
-1. Known remakes / adaptations (hardcoded seed list)
-2. Genre + theme matching via TMDB search
-3. Director crossovers (directors who worked in both industries)
+Generates US-KR movie pairs with graded relevance labels (remake=3,
+thematic=2, genre=1) using verified TMDB IDs, same-director pairs,
+and embedding-filtered genre matches.
 
-Outputs candidates to data/eval/gold_pairs_candidates.csv for manual review.
-After review, save final pairs to data/eval/gold_pairs.csv.
+Usage:
+    python curate_eval_pairs.py --seeds          # Seed pairs only
+    python curate_eval_pairs.py --embed-genre    # Seed + embedding-filtered genre
+    python curate_eval_pairs.py --all            # Everything (default)
+    python curate_eval_pairs.py --pool           # Generate pooling candidates
+    python curate_eval_pairs.py --stats          # Print gold set stats
 """
 
 import argparse
-import json
-import os
-import time
+import logging
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
-import requests
-from dotenv import load_dotenv
+
+from models import load_all_features, load_dataframes
+
+log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
 SCRIPT_DIR = Path(__file__).parent
-DATA_PROCESSED = SCRIPT_DIR / "data" / "processed"
 DATA_EVAL = SCRIPT_DIR / "data" / "eval"
 
-TMDB_BASE = "https://api.themoviedb.org/3"
-TMDB_DELAY_SEC = 0.3
-
 # ---------------------------------------------------------------------------
-# Seed pairs: known remakes and thematic matches
-# Relevance: 3 = remake/direct adaptation, 2 = thematic match, 1 = genre match
+# Seed pairs: all TMDB IDs verified against us_movies.csv and kr_movies.csv
+# Relevance: 3 = remake, 2 = thematic/same-director, 1 = genre match
 # ---------------------------------------------------------------------------
 SEED_PAIRS = [
-    # Remakes / direct adaptations (relevance 3)
-    {"us_title": "Oldboy", "kr_title": "Oldeuboi", "relevance": 3,
-     "type": "remake", "genre": "Thriller", "notes": "Spike Lee remake of Park Chan-wook original"},
-    {"us_title": "The Lake House", "kr_title": "Siworae", "relevance": 3,
-     "type": "remake", "genre": "Romance", "notes": "US remake of Korean Il Mare"},
-    {"us_title": "The Uninvited", "kr_title": "Janghwa, Hongryeon", "relevance": 3,
-     "type": "remake", "genre": "Horror", "notes": "Remake of A Tale of Two Sisters"},
-    {"us_title": "The Last Stand", "kr_title": "The Good, the Bad, the Weird", "relevance": 2,
-     "type": "thematic", "genre": "Action", "notes": "Kim Jee-woon directed both"},
+    # === Remakes (relevance=3) ===
+    {"us_id": 87516, "kr_id": 670, "us_title": "Oldboy", "kr_title": "Oldboy",
+     "relevance": 3, "type": "remake", "genre": "Thriller",
+     "notes": "Spike Lee (2013) remake of Park Chan-wook (2003)"},
+    {"us_id": 2044, "kr_id": 12650, "us_title": "The Lake House", "kr_title": "Il Mare",
+     "relevance": 3, "type": "remake", "genre": "Romance",
+     "notes": "US (2006) remake of Korean Il Mare (2000)"},
+    {"us_id": 14254, "kr_id": 4552, "us_title": "The Uninvited", "kr_title": "A Tale of Two Sisters",
+     "relevance": 3, "type": "remake", "genre": "Horror",
+     "notes": "US (2009) remake of A Tale of Two Sisters (2003)"},
 
-    # Thematic matches (relevance 2)
-    {"us_title": "Parasite", "kr_title": "Parasite", "relevance": 2,
-     "type": "thematic", "genre": "Thriller",
-     "notes": "Cross-listed; use as anchor for class-divide thrillers"},
-    {"us_title": "The Departed", "kr_title": "New World", "relevance": 2,
-     "type": "thematic", "genre": "Crime", "notes": "Undercover cop in crime syndicate"},
-    {"us_title": "Inception", "kr_title": "Lucid Dream", "relevance": 2,
-     "type": "thematic", "genre": "Sci-Fi", "notes": "Dream manipulation thriller"},
-    {"us_title": "Train to Busan", "kr_title": "Train to Busan", "relevance": 2,
-     "type": "thematic", "genre": "Horror",
-     "notes": "Cross-listed; anchor for zombie/survival horror"},
-    {"us_title": "Zodiac", "kr_title": "Memories of Murder", "relevance": 2,
-     "type": "thematic", "genre": "Crime", "notes": "Serial killer investigation procedural"},
-    {"us_title": "Gone Girl", "kr_title": "Bedevilled", "relevance": 2,
-     "type": "thematic", "genre": "Thriller", "notes": "Psychological revenge thriller"},
-    {"us_title": "The Shawshank Redemption", "kr_title": "A Bittersweet Life", "relevance": 2,
-     "type": "thematic", "genre": "Drama", "notes": "Betrayal and revenge in confined world"},
-    {"us_title": "Joker", "kr_title": "Burning", "relevance": 2,
-     "type": "thematic", "genre": "Drama", "notes": "Class resentment psychological drama"},
-    {"us_title": "Se7en", "kr_title": "I Saw the Devil", "relevance": 2,
-     "type": "thematic", "genre": "Thriller", "notes": "Dark cat-and-mouse thriller"},
-    {"us_title": "The Silence of the Lambs", "kr_title": "The Chaser", "relevance": 2,
-     "type": "thematic", "genre": "Thriller", "notes": "Serial killer pursuit thriller"},
-    {"us_title": "Gravity", "kr_title": "Space Sweepers", "relevance": 1,
-     "type": "genre", "genre": "Sci-Fi", "notes": "Space survival/adventure"},
-    {"us_title": "John Wick", "kr_title": "The Man from Nowhere", "relevance": 2,
-     "type": "thematic", "genre": "Action", "notes": "Lone protector revenge action"},
-    {"us_title": "Taken", "kr_title": "Ajeossi", "relevance": 2,
-     "type": "thematic", "genre": "Action", "notes": "Rescue mission action thriller"},
-    {"us_title": "Whiplash", "kr_title": "The King of Jokgu", "relevance": 1,
-     "type": "genre", "genre": "Drama", "notes": "Intense mentor-student competition"},
-    {"us_title": "The Notebook", "kr_title": "My Sassy Girl", "relevance": 1,
-     "type": "genre", "genre": "Romance", "notes": "Iconic romantic drama"},
-    {"us_title": "Get Out", "kr_title": "The Wailing", "relevance": 2,
-     "type": "thematic", "genre": "Horror", "notes": "Social horror with outsider protagonist"},
+    # === Same-director pairs (relevance=2) ===
+    # Park Chan-wook: Stoker (US) ↔ Korean filmography
+    {"us_id": 86825, "kr_id": 670, "us_title": "Stoker", "kr_title": "Oldboy",
+     "relevance": 2, "type": "same_director", "genre": "Thriller",
+     "notes": "Park Chan-wook: psychological thriller, family secrets"},
+    {"us_id": 86825, "kr_id": 290098, "us_title": "Stoker", "kr_title": "The Handmaiden",
+     "relevance": 2, "type": "same_director", "genre": "Thriller",
+     "notes": "Park Chan-wook: gothic psychosexual thriller"},
+    {"us_id": 86825, "kr_id": 705996, "us_title": "Stoker", "kr_title": "Decision to Leave",
+     "relevance": 2, "type": "same_director", "genre": "Thriller",
+     "notes": "Park Chan-wook: obsessive relationship thriller"},
+    {"us_id": 86825, "kr_id": 22536, "us_title": "Stoker", "kr_title": "Thirst",
+     "relevance": 2, "type": "same_director", "genre": "Horror",
+     "notes": "Park Chan-wook: dark desire, transformation"},
+
+    # Kim Jee-woon: The Last Stand (US) ↔ Korean filmography
+    {"us_id": 76640, "kr_id": 15067, "us_title": "The Last Stand", "kr_title": "The Good, the Bad, the Weird",
+     "relevance": 2, "type": "same_director", "genre": "Action",
+     "notes": "Kim Jee-woon directed both"},
+    {"us_id": 76640, "kr_id": 49797, "us_title": "The Last Stand", "kr_title": "I Saw the Devil",
+     "relevance": 2, "type": "same_director", "genre": "Thriller",
+     "notes": "Kim Jee-woon: intense thriller"},
+    {"us_id": 76640, "kr_id": 11344, "us_title": "The Last Stand", "kr_title": "A Bittersweet Life",
+     "relevance": 2, "type": "same_director", "genre": "Action",
+     "notes": "Kim Jee-woon: stylish action thriller"},
+    {"us_id": 76640, "kr_id": 363579, "us_title": "The Last Stand", "kr_title": "The Age of Shadows",
+     "relevance": 2, "type": "same_director", "genre": "Thriller",
+     "notes": "Kim Jee-woon: period action thriller"},
+
+    # Bong Joon-ho: Okja (US) ↔ Korean filmography
+    {"us_id": 387426, "kr_id": 1255, "us_title": "Okja", "kr_title": "The Host",
+     "relevance": 2, "type": "same_director", "genre": "Sci-Fi",
+     "notes": "Bong Joon-ho: creature + social commentary"},
+    {"us_id": 387426, "kr_id": 11423, "us_title": "Okja", "kr_title": "Memories of Murder",
+     "relevance": 2, "type": "same_director", "genre": "Crime",
+     "notes": "Bong Joon-ho: social commentary"},
+    {"us_id": 387426, "kr_id": 30018, "us_title": "Okja", "kr_title": "Mother",
+     "relevance": 2, "type": "same_director", "genre": "Drama",
+     "notes": "Bong Joon-ho: protagonist fights system for loved one"},
+    {"us_id": 387426, "kr_id": 496243, "us_title": "Okja", "kr_title": "Parasite",
+     "relevance": 2, "type": "same_director", "genre": "Thriller",
+     "notes": "Bong Joon-ho: class divide"},
+
+    # Bong Joon-ho: Mickey 17 (US) ↔ Korean filmography
+    {"us_id": 696506, "kr_id": 110415, "us_title": "Mickey 17", "kr_title": "Snowpiercer",
+     "relevance": 2, "type": "same_director", "genre": "Sci-Fi",
+     "notes": "Bong Joon-ho: sci-fi class commentary"},
+    {"us_id": 696506, "kr_id": 496243, "us_title": "Mickey 17", "kr_title": "Parasite",
+     "relevance": 2, "type": "same_director", "genre": "Thriller",
+     "notes": "Bong Joon-ho: class divide"},
+
+    # === Thematic pairs (relevance=2) — different directors, similar themes ===
+    {"us_id": 1422, "kr_id": 165213, "us_title": "The Departed", "kr_title": "New World",
+     "relevance": 2, "type": "thematic", "genre": "Crime",
+     "notes": "Undercover cop in crime syndicate"},
+    {"us_id": 27205, "kr_id": 436994, "us_title": "Inception", "kr_title": "Lucid Dream",
+     "relevance": 2, "type": "thematic", "genre": "Sci-Fi",
+     "notes": "Dream manipulation thriller"},
+    {"us_id": 1949, "kr_id": 11423, "us_title": "Zodiac", "kr_title": "Memories of Murder",
+     "relevance": 2, "type": "thematic", "genre": "Crime",
+     "notes": "Serial killer investigation procedural"},
+    {"us_id": 210577, "kr_id": 59421, "us_title": "Gone Girl", "kr_title": "Bedevilled",
+     "relevance": 2, "type": "thematic", "genre": "Thriller",
+     "notes": "Psychological revenge thriller"},
+    {"us_id": 278, "kr_id": 11344, "us_title": "The Shawshank Redemption", "kr_title": "A Bittersweet Life",
+     "relevance": 2, "type": "thematic", "genre": "Drama",
+     "notes": "Betrayal and revenge in confined world"},
+    {"us_id": 475557, "kr_id": 491584, "us_title": "Joker", "kr_title": "Burning",
+     "relevance": 2, "type": "thematic", "genre": "Drama",
+     "notes": "Class resentment psychological drama"},
+    {"us_id": 807, "kr_id": 49797, "us_title": "Se7en", "kr_title": "I Saw the Devil",
+     "relevance": 2, "type": "thematic", "genre": "Thriller",
+     "notes": "Dark cat-and-mouse thriller"},
+    {"us_id": 274, "kr_id": 13855, "us_title": "The Silence of the Lambs", "kr_title": "The Chaser",
+     "relevance": 2, "type": "thematic", "genre": "Thriller",
+     "notes": "Serial killer pursuit thriller"},
+    {"us_id": 245891, "kr_id": 51608, "us_title": "John Wick", "kr_title": "The Man from Nowhere",
+     "relevance": 2, "type": "thematic", "genre": "Action",
+     "notes": "Lone protector revenge action"},
+    {"us_id": 8681, "kr_id": 51608, "us_title": "Taken", "kr_title": "Ajeossi",
+     "relevance": 2, "type": "thematic", "genre": "Action",
+     "notes": "Rescue mission action thriller"},
+    {"us_id": 419430, "kr_id": 293670, "us_title": "Get Out", "kr_title": "The Wailing",
+     "relevance": 2, "type": "thematic", "genre": "Horror",
+     "notes": "Social horror with outsider protagonist"},
+    {"us_id": 146233, "kr_id": 11423, "us_title": "Prisoners", "kr_title": "Memories of Murder",
+     "relevance": 2, "type": "thematic", "genre": "Crime",
+     "notes": "Dark investigation procedural, moral ambiguity"},
+    {"us_id": 242582, "kr_id": 13855, "us_title": "Nightcrawler", "kr_title": "The Chaser",
+     "relevance": 2, "type": "thematic", "genre": "Thriller",
+     "notes": "Nocturnal urban crime thriller"},
+    {"us_id": 64690, "kr_id": 11344, "us_title": "Drive", "kr_title": "A Bittersweet Life",
+     "relevance": 2, "type": "thematic", "genre": "Crime",
+     "notes": "Stylish loner crime thriller"},
+    {"us_id": 493922, "kr_id": 4552, "us_title": "Hereditary", "kr_title": "A Tale of Two Sisters",
+     "relevance": 2, "type": "thematic", "genre": "Horror",
+     "notes": "Family horror, psychological"},
+    {"us_id": 530385, "kr_id": 293670, "us_title": "Midsommar", "kr_title": "The Wailing",
+     "relevance": 2, "type": "thematic", "genre": "Horror",
+     "notes": "Folk horror, outsider in community"},
+    {"us_id": 273481, "kr_id": 57361, "us_title": "Sicario", "kr_title": "The Yellow Sea",
+     "relevance": 2, "type": "thematic", "genre": "Crime",
+     "notes": "Border crime violence, relentless pursuit"},
+    {"us_id": 388, "kr_id": 124157, "us_title": "Inside Man", "kr_title": "The Thieves",
+     "relevance": 2, "type": "thematic", "genre": "Crime",
+     "notes": "Heist thriller"},
+    {"us_id": 161, "kr_id": 124157, "us_title": "Ocean's Eleven", "kr_title": "The Thieves",
+     "relevance": 2, "type": "thematic", "genre": "Crime",
+     "notes": "Ensemble heist"},
+    {"us_id": 6977, "kr_id": 57361, "us_title": "No Country for Old Men", "kr_title": "The Yellow Sea",
+     "relevance": 2, "type": "thematic", "genre": "Crime",
+     "notes": "Violent crime chase, unstoppable pursuer"},
+    {"us_id": 264660, "kr_id": 586047, "us_title": "Ex Machina", "kr_title": "Seobok",
+     "relevance": 2, "type": "thematic", "genre": "Sci-Fi",
+     "notes": "Sci-fi — artificial being, ethics of creation"},
+    {"us_id": 458723, "kr_id": 496243, "us_title": "Us", "kr_title": "Parasite",
+     "relevance": 2, "type": "thematic", "genre": "Thriller",
+     "notes": "Class divide horror/thriller"},
+    {"us_id": 487558, "kr_id": 437068, "us_title": "BlacKkKlansman", "kr_title": "A Taxi Driver",
+     "relevance": 2, "type": "thematic", "genre": "Drama",
+     "notes": "Political activism period drama"},
+    {"us_id": 275, "kr_id": 30018, "us_title": "Fargo", "kr_title": "Mother",
+     "relevance": 2, "type": "thematic", "genre": "Crime",
+     "notes": "Dark crime, unlikely protagonist investigation"},
+    {"us_id": 500, "kr_id": 293413, "us_title": "Reservoir Dogs", "kr_title": "Inside Men",
+     "relevance": 2, "type": "thematic", "genre": "Crime",
+     "notes": "Crime betrayal ensemble"},
+    {"us_id": 329865, "kr_id": 581389, "us_title": "Arrival", "kr_title": "Space Sweepers",
+     "relevance": 2, "type": "thematic", "genre": "Sci-Fi",
+     "notes": "Sci-fi first contact / space"},
+    {"us_id": 11036, "kr_id": 12650, "us_title": "The Notebook", "kr_title": "Il Mare",
+     "relevance": 2, "type": "thematic", "genre": "Romance",
+     "notes": "Time-crossing romance"},
+
+    # === Genre matches from seed pairs (relevance=1) ===
+    {"us_id": 49047, "kr_id": 581389, "us_title": "Gravity", "kr_title": "Space Sweepers",
+     "relevance": 1, "type": "genre", "genre": "Sci-Fi",
+     "notes": "Space survival/adventure"},
+    {"us_id": 244786, "kr_id": 199584, "us_title": "Whiplash", "kr_title": "Secretly, Greatly",
+     "relevance": 1, "type": "genre", "genre": "Drama",
+     "notes": "Intense pressure drama"},
+    {"us_id": 11036, "kr_id": 11178, "us_title": "The Notebook", "kr_title": "My Sassy Girl",
+     "relevance": 1, "type": "genre", "genre": "Romance",
+     "notes": "Iconic romantic drama"},
 ]
 
 
 # ---------------------------------------------------------------------------
-# TMDB helpers
+# Strategy 1: Seed pairs (hardcoded IDs, no API calls)
 # ---------------------------------------------------------------------------
-def load_api_key() -> str:
-    load_dotenv(SCRIPT_DIR / ".env")
-    key = os.getenv("TMDB_API_KEY")
-    if not key or key == "your_api_key_here":
-        raise SystemExit("Set TMDB_API_KEY in .env")
-    return key
-
-
-def search_tmdb(title: str, language: str, api_key: str) -> dict | None:
-    """Search TMDB for a movie by title, return first result."""
-    time.sleep(TMDB_DELAY_SEC)
-    params = {
-        "api_key": api_key,
-        "query": title,
-        "language": "en-US",
-    }
-    if language == "ko":
-        params["with_original_language"] = "ko"
-    resp = requests.get(f"{TMDB_BASE}/search/movie", params=params, timeout=30)
-    if resp.status_code != 200:
-        return None
-    results = resp.json().get("results", [])
-    return results[0] if results else None
-
-
-# ---------------------------------------------------------------------------
-# Pair resolution
-# ---------------------------------------------------------------------------
-def resolve_seed_pairs(api_key: str) -> pd.DataFrame:
-    """Resolve seed pairs to TMDB IDs."""
+def get_seed_pairs() -> pd.DataFrame:
+    """Return seed pairs as DataFrame with verified TMDB IDs."""
     rows = []
-    for pair in SEED_PAIRS:
-        us_match = search_tmdb(pair["us_title"], "en", api_key)
-        kr_match = search_tmdb(pair["kr_title"], "ko", api_key)
-
-        # Fallback: search KR title without language filter
-        if not kr_match:
-            kr_match = search_tmdb(pair["kr_title"], "en", api_key)
-
-        us_id = us_match["id"] if us_match else None
-        kr_id = kr_match["id"] if kr_match else None
-
+    for p in SEED_PAIRS:
         rows.append({
-            "us_tmdb_id": us_id,
-            "kr_tmdb_id": kr_id,
-            "us_title": pair["us_title"],
-            "kr_title": pair["kr_title"],
-            "relevance": pair["relevance"],
-            "relationship_type": pair["type"],
-            "genre": pair["genre"],
-            "notes": pair["notes"],
-            "resolved": bool(us_id and kr_id),
+            "us_tmdb_id": p["us_id"],
+            "kr_tmdb_id": p["kr_id"],
+            "us_title": p["us_title"],
+            "kr_title": p["kr_title"],
+            "relevance": p["relevance"],
+            "relationship_type": p["type"],
+            "genre": p["genre"],
+            "notes": p["notes"],
         })
-        print(f"  {pair['us_title']} ↔ {pair['kr_title']}: "
-              f"{'OK' if us_id and kr_id else 'MISSING'}")
-
     return pd.DataFrame(rows)
 
 
-def find_genre_matches(
-    us_df: pd.DataFrame, kr_df: pd.DataFrame, per_genre: int = 3,
+# ---------------------------------------------------------------------------
+# Strategy 2: Embedding-filtered genre matches
+# ---------------------------------------------------------------------------
+def find_embedding_genre_matches(
+    us_df: pd.DataFrame,
+    kr_df: pd.DataFrame,
+    features: dict,
+    per_genre_us: int = 5,
+    top_similar: int = 3,
+    seed: int = 42,
 ) -> pd.DataFrame:
-    """Find additional genre-matched pairs from processed data."""
-    rows = []
-    # Get genre list from US movies
+    """Find genre-matched pairs ranked by embedding similarity (not rating).
+
+    For each genre:
+    1. Sample per_genre_us US movies (stratified by popularity)
+    2. Find KR movies sharing that genre
+    3. Rank by embedding cosine similarity
+    4. Take top_similar most similar as genre matches (relevance=1)
+    """
+    rng = np.random.RandomState(seed)
+    emb_us = features["emb_us"]
+    emb_kr = features["emb_kr"]
+
+    # Build genre sets
     all_genres = set()
     for gs in us_df["genres"].dropna():
         all_genres.update(str(gs).split("|"))
     all_genres -= {""}
 
+    rows = []
     for genre in sorted(all_genres):
-        us_genre = us_df[us_df["genres"].str.contains(genre, na=False)]
-        kr_genre = kr_df[kr_df["genres"].str.contains(genre, na=False)]
+        us_mask = us_df["genres"].str.contains(genre, na=False)
+        kr_mask = kr_df["genres"].str.contains(genre, na=False)
 
-        if us_genre.empty or kr_genre.empty:
+        us_genre = us_df[us_mask]
+        kr_genre = kr_df[kr_mask]
+
+        if len(us_genre) < 3 or len(kr_genre) < 3:
             continue
 
-        # Pick top-rated US movies and top-rated KR movies
-        us_top = us_genre.nlargest(per_genre, "rating")
-        kr_top = kr_genre.nlargest(per_genre, "rating")
+        # Stratified sample: 2 popular, 2 mid, 1 long-tail
+        sorted_by_pop = us_genre.sort_values("popularity", ascending=False)
+        n = len(sorted_by_pop)
+        tercile = max(1, n // 3)
 
-        for _, us_row in us_top.iterrows():
-            for _, kr_row in kr_top.iterrows():
+        popular = sorted_by_pop.iloc[:tercile]
+        mid = sorted_by_pop.iloc[tercile:2 * tercile]
+        tail = sorted_by_pop.iloc[2 * tercile:]
+
+        samples = []
+        for pool, count in [(popular, 2), (mid, 2), (tail, 1)]:
+            if len(pool) >= count:
+                samples.append(pool.sample(count, random_state=rng))
+            elif len(pool) > 0:
+                samples.append(pool.sample(min(count, len(pool)), random_state=rng))
+
+        if not samples:
+            continue
+
+        us_sample = pd.concat(samples).drop_duplicates(subset=["tmdb_id"])
+
+        # Get KR indices for embedding lookup
+        kr_indices = kr_genre.index.tolist()
+        kr_embs = emb_kr[kr_indices]
+
+        for _, us_row in us_sample.iterrows():
+            us_idx = us_row.name  # DataFrame index = feature matrix index
+            us_emb = emb_us[us_idx].reshape(1, -1)
+
+            # Cosine similarity (embeddings are L2-normalized)
+            sims = (kr_embs @ us_emb.T).flatten()
+            top_kr_local = sims.argsort()[-top_similar:][::-1]
+
+            for local_idx in top_kr_local:
+                kr_idx = kr_indices[local_idx]
+                kr_row = kr_df.iloc[kr_idx]
                 rows.append({
                     "us_tmdb_id": int(us_row["tmdb_id"]),
                     "kr_tmdb_id": int(kr_row["tmdb_id"]),
@@ -176,8 +296,7 @@ def find_genre_matches(
                     "relevance": 1,
                     "relationship_type": "genre",
                     "genre": genre,
-                    "notes": f"Top-rated {genre} match",
-                    "resolved": True,
+                    "notes": f"Embedding-filtered {genre} match (sim={sims[local_idx]:.3f})",
                 })
 
     df = pd.DataFrame(rows).drop_duplicates(subset=["us_tmdb_id", "kr_tmdb_id"])
@@ -185,50 +304,208 @@ def find_genre_matches(
 
 
 # ---------------------------------------------------------------------------
+# Strategy 3: Pooling candidates for manual review
+# ---------------------------------------------------------------------------
+def generate_pool_candidates(
+    us_df: pd.DataFrame,
+    kr_df: pd.DataFrame,
+    features: dict,
+    n_queries: int = 100,
+    top_k: int = 20,
+    seed: int = 42,
+) -> pd.DataFrame:
+    """Generate model-ranked candidates for human labeling.
+
+    Selects diverse US movies, runs hybrid model, outputs top-k KR candidates
+    with relevance=NaN for manual review.
+    """
+    from models import get_recommendations
+
+    rng = np.random.RandomState(seed)
+
+    # Stratified sample of US movies
+    sorted_by_pop = us_df.sort_values("popularity", ascending=False)
+    n = len(sorted_by_pop)
+    tercile = max(1, n // 3)
+
+    popular = sorted_by_pop.iloc[:tercile].sample(min(40, tercile), random_state=rng)
+    mid = sorted_by_pop.iloc[tercile:2 * tercile].sample(min(30, tercile), random_state=rng)
+    tail = sorted_by_pop.iloc[2 * tercile:].sample(min(30, n - 2 * tercile), random_state=rng)
+
+    us_sample = pd.concat([popular, mid, tail]).drop_duplicates(subset=["tmdb_id"]).head(n_queries)
+
+    rows = []
+    for _, us_row in us_sample.iterrows():
+        recs = get_recommendations(
+            us_row["title"], "hybrid", us_df, kr_df, features, top_k=top_k
+        )
+        if recs.empty:
+            continue
+
+        for rank, (_, kr_row) in enumerate(recs.iterrows(), 1):
+            rows.append({
+                "us_tmdb_id": int(us_row["tmdb_id"]),
+                "kr_tmdb_id": int(kr_row["tmdb_id"]),
+                "us_title": us_row["title"],
+                "kr_title": kr_row["title"],
+                "rank": rank,
+                "hybrid_score": round(kr_row["score"], 4),
+                "relevance": "",
+                "relationship_type": "",
+                "genre": str(us_row.get("genres", "")).split("|")[0],
+                "notes": "",
+                "reviewed": False,
+            })
+
+    return pd.DataFrame(rows)
+
+
+# ---------------------------------------------------------------------------
+# Merge + deduplicate + validate
+# ---------------------------------------------------------------------------
+def merge_sources(
+    seed_df: pd.DataFrame,
+    genre_df: pd.DataFrame,
+    us_df: pd.DataFrame,
+    kr_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Merge seed and genre pairs, deduplicate, validate IDs."""
+    combined = pd.concat([seed_df, genre_df], ignore_index=True)
+
+    # Deduplicate: keep highest relevance when duplicate (us_id, kr_id)
+    combined = combined.sort_values("relevance", ascending=False)
+    combined = combined.drop_duplicates(subset=["us_tmdb_id", "kr_tmdb_id"], keep="first")
+
+    # Validate all IDs exist in catalogs
+    valid_us = combined["us_tmdb_id"].isin(us_df["tmdb_id"])
+    valid_kr = combined["kr_tmdb_id"].isin(kr_df["tmdb_id"])
+    invalid = combined[~(valid_us & valid_kr)]
+    if len(invalid) > 0:
+        log.warning(f"  {len(invalid)} pairs have invalid TMDB IDs, removing:")
+        for _, r in invalid.iterrows():
+            log.warning(f"    {r['us_title']} ({r['us_tmdb_id']}) <-> {r['kr_title']} ({r['kr_tmdb_id']})")
+        combined = combined[valid_us & valid_kr]
+
+    return combined.sort_values(["relevance", "us_title"], ascending=[False, True]).reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
+# Stats
+# ---------------------------------------------------------------------------
+def print_stats(gold: pd.DataFrame) -> None:
+    """Log gold set distribution statistics."""
+    log.info(f"{'='*60}")
+    log.info(f"Gold Set Statistics")
+    log.info(f"{'='*60}")
+    log.info(f"Total pairs: {len(gold)}")
+    log.info(f"Unique US queries: {gold['us_tmdb_id'].nunique()}")
+    log.info(f"Unique KR movies: {gold['kr_tmdb_id'].nunique()}")
+    log.info(f"Avg gold matches per US query: {len(gold) / gold['us_tmdb_id'].nunique():.1f}")
+
+    log.info(f"Relevance distribution:")
+    for rel in sorted(gold["relevance"].unique(), reverse=True):
+        count = (gold["relevance"] == rel).sum()
+        label = {3: "remake", 2: "thematic/director", 1: "genre"}.get(rel, f"rel_{rel}")
+        log.info(f"  {label} ({rel}): {count}")
+
+    log.info(f"Relationship types:")
+    for rtype, count in gold["relationship_type"].value_counts().items():
+        log.info(f"  {rtype}: {count}")
+
+    log.info(f"Genre coverage:")
+    genres = set()
+    for g in gold["genre"].dropna():
+        genres.add(str(g))
+    log.info(f"  {len(genres)} genres: {', '.join(sorted(genres))}")
+
+    log.info(f"Top US movies by gold matches:")
+    top = gold.groupby("us_title").size().sort_values(ascending=False).head(10)
+    for title, count in top.items():
+        log.info(f"  {title}: {count} matches")
+
+    log.info(f"{'='*60}")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    parser = argparse.ArgumentParser(description="Curate evaluation movie pairs")
-    parser.add_argument("--seeds-only", action="store_true",
-                        help="Only resolve seed pairs (no genre expansion)")
-    parser.add_argument("--per-genre", type=int, default=3,
-                        help="Genre-match pairs to generate per genre")
+    parser = argparse.ArgumentParser(description="Curate gold evaluation pairs")
+    parser.add_argument("--seeds", action="store_true", help="Seed pairs only")
+    parser.add_argument("--embed-genre", action="store_true", help="Seed + embedding-filtered genre")
+    parser.add_argument("--pool", action="store_true", help="Generate pooling candidates for review")
+    parser.add_argument("--all", action="store_true", help="Everything except pooling (default)")
+    parser.add_argument("--stats", action="store_true", help="Print stats for existing gold set")
+    parser.add_argument("--per-genre-us", type=int, default=5, help="US movies per genre for embedding match")
+    parser.add_argument("--top-similar", type=int, default=3, help="KR matches per US movie per genre")
     args = parser.parse_args()
 
-    api_key = load_api_key()
+    # Default to --all if no flags
+    if not any([args.seeds, args.embed_genre, args.pool, args.stats, args.all]):
+        args.all = True
 
-    print("=== Resolving seed pairs ===")
-    seed_df = resolve_seed_pairs(api_key)
-    resolved = seed_df[seed_df["resolved"]].drop(columns=["resolved"])
-    print(f"  Resolved {len(resolved)}/{len(seed_df)} seed pairs")
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
-    if not args.seeds_only:
-        # Load processed data for genre matching
-        us_path = DATA_PROCESSED / "us_movies.csv"
-        kr_path = DATA_PROCESSED / "kr_movies.csv"
-        if us_path.exists() and kr_path.exists():
-            print("\n=== Finding genre matches ===")
-            us_df = pd.read_csv(us_path)
-            kr_df = pd.read_csv(kr_path)
-            genre_df = find_genre_matches(us_df, kr_df, per_genre=args.per_genre)
-            print(f"  Found {len(genre_df)} genre-matched candidates")
+    # Stats mode: just log and exit
+    if args.stats:
+        path = DATA_EVAL / "gold_pairs.csv"
+        gold = pd.read_csv(path)
+        log.info(f"Reading: {path.name}")
+        print_stats(gold)
+        return
 
-            # Combine, deduplicate
-            combined = pd.concat([resolved, genre_df], ignore_index=True)
-            combined = combined.drop_duplicates(subset=["us_tmdb_id", "kr_tmdb_id"])
-        else:
-            print("  Processed data not found, skipping genre matching.")
-            print("  Run data_ingestion.py first.")
-            combined = resolved
+    us_df, kr_df = load_dataframes()
+
+    # Strategy 1: Seed pairs
+    log.info("=== Strategy 1: Seed Pairs ===")
+    seed_df = get_seed_pairs()
+    log.info(f"  {len(seed_df)} seed pairs ({(seed_df['relevance']==3).sum()} remake, "
+             f"{(seed_df['relevance']==2).sum()} thematic/director, "
+             f"{(seed_df['relevance']==1).sum()} genre)")
+
+    if args.seeds:
+        DATA_EVAL.mkdir(parents=True, exist_ok=True)
+        out = DATA_EVAL / "gold_pairs.csv"
+        merged = merge_sources(seed_df, pd.DataFrame(), us_df, kr_df)
+        merged.to_csv(out, index=False)
+        log.info(f"Saved {len(merged)} pairs to {out.name}")
+        print_stats(merged)
+        return
+
+    # Strategy 2: Embedding-filtered genre matches
+    if args.embed_genre or args.all:
+        log.info("=== Strategy 2: Embedding-Filtered Genre Matches ===")
+        features = load_all_features()
+        genre_df = find_embedding_genre_matches(
+            us_df, kr_df, features,
+            per_genre_us=args.per_genre_us,
+            top_similar=args.top_similar,
+        )
+        log.info(f"  {len(genre_df)} genre pairs across {genre_df['genre'].nunique()} genres")
+        log.info(f"  {genre_df['us_tmdb_id'].nunique()} unique US queries")
     else:
-        combined = resolved
+        genre_df = pd.DataFrame()
 
-    # Save candidates
+    # Merge and save
     DATA_EVAL.mkdir(parents=True, exist_ok=True)
-    out_path = DATA_EVAL / "gold_pairs_candidates.csv"
-    combined.to_csv(out_path, index=False)
-    print(f"\nSaved {len(combined)} candidates to {out_path.name}")
-    print("Review and save final pairs to data/eval/gold_pairs.csv")
+    merged = merge_sources(seed_df, genre_df, us_df, kr_df)
+
+    out = DATA_EVAL / "gold_pairs.csv"
+    merged.to_csv(out, index=False)
+    log.info(f"Saved {len(merged)} pairs to {out.name}")
+    print_stats(merged)
+
+    # Strategy 3: Pooling (separate output)
+    if args.pool:
+        log.info("=== Strategy 3: Pooling Candidates ===")
+        if "features" not in dir():
+            features = load_all_features()
+        pool_df = generate_pool_candidates(us_df, kr_df, features)
+        pool_out = DATA_EVAL / "pool_candidates.csv"
+        pool_df.to_csv(pool_out, index=False)
+        log.info(f"  {len(pool_df)} candidates for {pool_df['us_tmdb_id'].nunique()} queries")
+        log.info(f"  Saved to {pool_out.name}")
+        log.info(f"  Review and label relevance (0-3), then run --merge to incorporate.")
 
 
 if __name__ == "__main__":

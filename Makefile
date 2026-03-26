@@ -2,8 +2,8 @@ VENV := .venv
 PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 
-.PHONY: setup ingest ingest-us ingest-kr features features-quick eval eval-tune app quality results clean \
-       features-v2 eval-v2 eval-v2-tune app-v2 compare results-v2
+.PHONY: setup ingest ingest-us ingest-kr fetch-keywords features features-quick \
+       eval eval-tune app quality results test clean
 
 setup:
 	python3 -m venv $(VENV)
@@ -21,8 +21,11 @@ ingest-us:
 ingest-kr:
 	$(PYTHON) data_ingestion.py --skip-us
 
+fetch-keywords:
+	$(PYTHON) fetch_keywords.py
+
 features:
-	$(PYTHON) feature_engineering.py --groups tfidf,embedding,genre,cast
+	$(PYTHON) feature_engineering.py --groups tfidf,embedding,genre,cast,keyword,year
 
 features-quick:
 	$(PYTHON) feature_engineering.py --groups tfidf,genre
@@ -31,10 +34,10 @@ eval:
 	$(PYTHON) evaluate.py --model all
 
 eval-tune:
-	$(PYTHON) evaluate.py --model hybrid --weights 0.4,0.35,0.25
+	$(PYTHON) evaluate.py --tune
 
 app:
-	$(PYTHON) -m streamlit run app.py
+	$(PYTHON) -m streamlit run app_v2.py
 
 quality:
 	@echo "--- Data Quality ---"
@@ -51,28 +54,8 @@ quality:
 results:
 	@cat results/benchmark_comparison.csv
 
-# --- V2 targets ---
-
-fetch-keywords:
-	$(PYTHON) fetch_keywords.py
-
-features-v2:
-	$(PYTHON) feature_engineering_v2.py --groups tfidf,embedding,genre,cast,keyword,year
-
-eval-v2:
-	$(PYTHON) evaluate_v2.py --model all
-
-eval-v2-tune:
-	$(PYTHON) evaluate_v2.py --tune
-
-app-v2:
-	$(PYTHON) -m streamlit run app_v2.py
-
-compare:
-	$(PYTHON) compare_models.py
-
-results-v2:
-	@cat results/benchmark_v2_comparison.csv
+test:
+	$(PYTHON) -m pytest tests/ -v
 
 clean:
 	rm -rf data/raw data/features data/metadata results
