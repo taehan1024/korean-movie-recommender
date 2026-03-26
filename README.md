@@ -50,7 +50,7 @@ graph LR
 - **5-dimensional hybrid scoring** — text similarity, genre Jaccard, keyword Jaccard, year proximity, and cast overlap, fused with grid-search-tuned weights
 - **Cross-catalog keyword bridge** — only keywords appearing in *both* US and KR catalogs are used (1,768 of ~30K), tripling thematic match detection
 - **Grid search over 288 weight combinations** — found that cast features contribute zero signal (0.8% cross-industry person overlap), optimal weights: `text=0.47, genre=0.24, keyword=0.18, year=0.11, cast=0.00`
-- **Graded relevance evaluation** — remakes (rel=3), thematic matches (rel=2), genre matches (rel=1) with DCG as primary metric per [Jeunen et al. (KDD 2024)](https://arxiv.org/pdf/2307.15053)
+- **Graded relevance evaluation** — remakes (rel=3), thematic matches (rel=2), genre matches (rel=1) with DCG as primary metric per [Jeunen et al. (KDD 2024)](https://arxiv.org/abs/2307.15053)
 - **Bootstrap confidence intervals** — all metrics reported with standard errors (56 queries makes point estimates unreliable)
 - **Concurrent data ingestion** — token bucket rate limiter across 4 threads for 3.5x speedup over sequential TMDB API fetching
 
@@ -108,7 +108,7 @@ korean-movie-recommender/
 
 **Gold set:** 174 curated US-KR pairs — 3 remakes, ~21 thematic matches, ~150 genre matches.
 
-**Primary metric:** DCG@10 (unnormalized), following [Jeunen et al. (KDD 2024)](https://arxiv.org/pdf/2307.15053) — nDCG normalization can invert method ordering.
+**Primary metric:** DCG@10 (unnormalized), following [Jeunen et al. (KDD 2024)](https://arxiv.org/abs/2307.15053) — nDCG normalization can invert method ordering.
 
 **Grounded in:**
 - [DaisyRec 2.0](https://arxiv.org/abs/2206.10848) — evaluation rigor, appropriate metrics for sparse labels
