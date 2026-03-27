@@ -24,7 +24,7 @@ DEFAULT_ROW_TITLES = [
 
 
 st.set_page_config(
-    page_title="K-Movie Recommender v3",
+    page_title="K-Movie Recommender",
     page_icon="🎬",
     layout="wide",
 )
@@ -419,7 +419,7 @@ def main() -> None:
     st.markdown(
         """
         <div class="hero">
-            <div class="hero-title">Korean Movie Recommender v3</div>
+            <div class="hero-title">Korean Movie Recommender</div>
             <p class="hero-copy">
                 Browse Korean recommendations in rows, starting from strong US movie anchors.
                 Each row is sorted left to right by similarity, so the first cards are the closest matches.
