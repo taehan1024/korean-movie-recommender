@@ -7,7 +7,7 @@
 
 Cross-cultural content-based movie recommender: enter a US movie, get ranked Korean movie recommendations with explanations.
 
-**[Try the live demo](https://korean-movie-recommender-dbs65tfqxee5tdixtse4o6.streamlit.app)**
+**[Try the live demo](https://korean-movie-recommender-vjhewiptesuplvgi7nabrx.streamlit.app)**
 
 ## Problem
 
