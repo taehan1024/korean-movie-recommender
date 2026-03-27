@@ -37,7 +37,7 @@ eval-tune:
 	$(PYTHON) evaluate.py --tune
 
 app:
-	$(PYTHON) -m streamlit run app_v3.py
+	$(PYTHON) -m streamlit run streamlit_app.py
 
 quality:
 	@echo "--- Data Quality ---"

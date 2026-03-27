@@ -89,7 +89,8 @@ korean-movie-recommender/
 ├── fetch_keywords.py        # Add TMDB keywords to existing catalogs
 ├── curate_eval_pairs.py     # Semi-automated gold pair curation
 ├── utils.py                 # Shared utilities (token bucket rate limiter)
-├── app_v3.py                # Streamlit UI
+├── app_v3.py                # Main Streamlit UI implementation
+├── streamlit_app.py         # Deployment entrypoint for Streamlit Cloud
 ├── Makefile                 # Pipeline automation
 ├── report.md                # Detailed technical report
 ├── notebooks/
