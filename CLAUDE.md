@@ -49,9 +49,4 @@ make test           # run unit tests
 
 - TMDB key in `.env` as `TMDB_API_KEY`
 
-
-
-
-
-
 - Rate limit: token bucket (35 req/10s) + exponential backoff on 429
