@@ -7,7 +7,7 @@ import random
 import pandas as pd
 import streamlit as st
 
-from models_v2 import DEFAULT_WEIGHTS, get_recommendations, load_all_features, load_dataframes
+from models import DEFAULT_WEIGHTS, get_recommendations, load_all_features, load_dataframes
 
 
 TMDB_IMG_BASE = "https://image.tmdb.org/t/p/w300"

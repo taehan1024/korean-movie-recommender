@@ -29,8 +29,8 @@ make test           # run unit tests
 | `fetch_keywords.py` | TMDB keyword enrichment for existing catalogs |
 | `curate_eval_pairs.py` | Semi-automated gold pair generation |
 | `utils.py` | Shared utilities (TokenBucket rate limiter) |
-| `app_v2.py` | Streamlit UI (live on Streamlit Cloud) |
-| `models_v2.py` | Compatibility shim for live Streamlit app |
+| `app_v3.py` | Streamlit UI (live on Streamlit Cloud) |
+| `models_v2.py` | Compatibility shim (legacy import path) |
 
 ## Design Decisions
 
